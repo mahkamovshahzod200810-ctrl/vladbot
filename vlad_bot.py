@@ -247,7 +247,8 @@ def main_keyboard():
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Привет, сучара ✌️! Че ты хочешь ?",
-        reply_markup=main_keyboard()
+        reply_markup=main_keyboard(),
+        protect_content=True
     )
 
 async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
