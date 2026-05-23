@@ -253,10 +253,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     chat_history[chat_id] = []
-    await update.message.reply_text("История очищена.")
+    await update.message.reply_text("История очищена.", protect_content=True)
 
 async def myid(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(f"Твой Telegram ID: `{update.effective_user.id}`", parse_mode="Markdown")
+    await update.message.reply_text(f"Твой Telegram ID: `{update.effective_user.id}`", parse_mode="Markdown", protect_content=True)
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
@@ -272,7 +272,7 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for v in chats_data.values()
     ) or "Пусто"
     text = f"👥 Пользователей: {u_count}\n\n{users_list}\n\n💬 Чатов: {c_count}\n\n{chats_list}"
-    await update.message.reply_text(text[:4000])
+    await update.message.reply_text(text[:4000], protect_content=True)
 
 # ============================
 # ДИАГНОСТИКА (только для админа)
@@ -281,12 +281,12 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def check_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         return
-    await update.message.reply_text("🔍 Проверяю API ключ и первую модель...")
+    await update.message.reply_text("🔍 Проверяю API ключ и первую модель...", protect_content=True)
     if not OPENROUTER_KEY:
-        await update.message.reply_text("❌ OPENROUTER_KEY не задан в переменных окружения!")
+        await update.message.reply_text("❌ OPENROUTER_KEY не задан в переменных окружения!", protect_content=True)
         return
     key_preview = f"{OPENROUTER_KEY[:6]}...{OPENROUTER_KEY[-4:]}" if len(OPENROUTER_KEY) > 10 else "слишком короткий"
-    await update.message.reply_text(f"🔑 Ключ найден: {key_preview}")
+    await update.message.reply_text(f"🔑 Ключ найден: {key_preview}", protect_content=True)
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -308,14 +308,14 @@ async def check_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📡 Ответ сервера:\nСтатус: {status}\n\n{body}"
         )
     except Exception as e:
-        await update.message.reply_text(f"❌ Ошибка соединения: {e}")
+        await update.message.reply_text(f"❌ Ошибка соединения: {e}", protect_content=True)
 
 async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         return
     text = " ".join(context.args).strip() if context.args else ""
     if not text:
-        await update.message.reply_text("Использование: /broadcast <текст>")
+        await update.message.reply_text("Использование: /broadcast <текст>", protect_content=True)
         return
 
     sent = 0
@@ -338,7 +338,7 @@ async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 failed += 1
             await asyncio.sleep(0.05)
 
-    await update.message.reply_text(f"✅ Отправлено: {sent}\n❌ Ошибок: {failed}")
+    await update.message.reply_text(f"✅ Отправлено: {sent}\n❌ Ошибок: {failed}", protect_content=True)
 
 async def donate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
@@ -358,7 +358,7 @@ async def ask_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     text = " ".join(context.args).strip() if context.args else ""
     if not text:
-        await update.message.reply_text("Использование: /ask <вопрос>")
+        await update.message.reply_text("Использование: /ask <вопрос>", protect_content=True)
         return
     if chat_id not in chat_history:
         chat_history[chat_id] = []
@@ -369,7 +369,7 @@ async def ask_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply = await ask_ai(chat_history[chat_id])
     chat_history[chat_id].append({"role": "assistant", "content": reply})
     for chunk in [reply[i:i+4000] for i in range(0, len(reply), 4000)]:
-        await update.message.reply_text(chunk)
+        await update.message.reply_text(chunk, protect_content=True)
 
 # ============================
 # АДМИН: СПИСОК ПОЛЬЗОВАТЕЛЕЙ
@@ -406,7 +406,7 @@ async def users_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     total = len(users_data)
     blocked = sum(1 for u in users_data.values() if u.get("blocked"))
     text = f"👥 Всего пользователей: {total}\n🚫 Заблокировано: {blocked}\n\nВыбери пользователя:"
-    await update.message.reply_text(text, reply_markup=build_users_list_keyboard(0))
+    await update.message.reply_text(text, reply_markup=build_users_list_keyboard(0), protect_content=True)
 
 async def users_page_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -627,7 +627,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(chat_history[chat_id]) > 100:
         chat_history[chat_id] = chat_history[chat_id][-100:]
 
-    placeholder = await update.message.reply_text("🧠 _Готовлю ответ..._", parse_mode="Markdown")
+    placeholder = await update.message.reply_text("🧠 _Готовлю ответ..._", parse_mode="Markdown", protect_content=True)
 
     reply = await ask_ai(chat_history[chat_id])
     chat_history[chat_id].append({"role": "assistant", "content": reply})
@@ -638,7 +638,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pass
 
     for chunk in [reply[i:i+4000] for i in range(0, len(reply), 4000)]:
-        await update.message.reply_text(chunk)
+        await update.message.reply_text(chunk, protect_content=True)
 
 # ============================
 # НОВЫЕ АДМИН-КОМАНДЫ
@@ -649,7 +649,7 @@ async def top_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     sorted_users = sorted(users_data.values(), key=lambda u: u.get("message_count", 0), reverse=True)[:10]
     if not sorted_users:
-        await update.message.reply_text("Пока никого нет.")
+        await update.message.reply_text("Пока никого нет.", protect_content=True)
         return
     lines = []
     medals = ["🥇", "🥈", "🥉"] + ["4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣","🔟"]
@@ -660,20 +660,20 @@ async def top_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         blocked = " 🚫" if u.get("blocked") else ""
         lines.append(f"{medals[i]} {name} {username}{blocked} — {count} сообщ.")
     text = "📊 <b>Топ пользователей</b>\n\n" + "\n".join(lines)
-    await update.message.reply_text(text, parse_mode="HTML")
+    await update.message.reply_text(text, parse_mode="HTML", protect_content=True)
 
 async def wipe_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         return
     count = len(chat_history)
     chat_history.clear()
-    await update.message.reply_text(f"🗑️ Очищено {count} историй чатов из памяти.")
+    await update.message.reply_text(f"🗑️ Очищено {count} историй чатов из памяти.", protect_content=True)
 
 async def kick_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         return
     if not context.args:
-        await update.message.reply_text("Использование: /kick @username или /kick <ID>")
+        await update.message.reply_text("Использование: /kick @username или /kick <ID>", protect_content=True)
         return
     target = context.args[0].lstrip("@").lower()
     found = None
@@ -682,18 +682,18 @@ async def kick_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             found = uid
             break
     if not found:
-        await update.message.reply_text("❌ Пользователь не найден.")
+        await update.message.reply_text("❌ Пользователь не найден.", protect_content=True)
         return
     users_data[found]["blocked"] = True
     save_json(USERS_FILE, users_data)
     name = users_data[found].get("name", "—")
-    await update.message.reply_text(f"🚫 {name} заблокирован.")
+    await update.message.reply_text(f"🚫 {name} заблокирован.", protect_content=True)
 
 async def unblock_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         return
     if not context.args:
-        await update.message.reply_text("Использование: /unblock @username или /unblock <ID>")
+        await update.message.reply_text("Использование: /unblock @username или /unblock <ID>", protect_content=True)
         return
     target = context.args[0].lstrip("@").lower()
     found = None
@@ -702,12 +702,12 @@ async def unblock_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             found = uid
             break
     if not found:
-        await update.message.reply_text("❌ Пользователь не найден.")
+        await update.message.reply_text("❌ Пользователь не найден.", protect_content=True)
         return
     users_data[found]["blocked"] = False
     save_json(USERS_FILE, users_data)
     name = users_data[found].get("name", "—")
-    await update.message.reply_text(f"✅ {name} разблокирован.")
+    await update.message.reply_text(f"✅ {name} разблокирован.", protect_content=True)
 
 async def info_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
@@ -724,7 +724,7 @@ async def info_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"📨 Всего сообщений: <b>{total_msgs}</b>\n"
         f"🤖 Моделей в пуле: <b>{len(MODELS)}</b>"
     )
-    await update.message.reply_text(text, parse_mode="HTML")
+    await update.message.reply_text(text, parse_mode="HTML", protect_content=True)
 
 # ============================
 # MAIN
