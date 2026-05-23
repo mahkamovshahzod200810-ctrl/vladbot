@@ -127,18 +127,12 @@ async def track_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 MODELS = [
     "meta-llama/llama-3.3-70b-instruct:free",
-    "mistralai/mistral-7b-instruct:free",
     "google/gemma-3-27b-it:free",
-    "google/gemma-3-12b-it:free",
-    "qwen/qwen3-8b:free",
-    "qwen/qwen2.5-72b-instruct:free",
     "deepseek/deepseek-chat-v3-0324:free",
-    "mistralai/mistral-small-3.1-24b-instruct:free",
     "microsoft/phi-4-reasoning-plus:free",
     "tngtech/deepseek-r1t-chimera:free",
-    "google/gemma-3-4b-it:free",
-    "microsoft/phi-3-mini-128k-instruct:free",
-    "huggingfaceh4/zephyr-7b-beta:free",
+    "qwen/qwen3-8b:free",
+    "qwen/qwen3-14b:free",
 ]
 
 REFUSAL_PHRASES = [
