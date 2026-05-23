@@ -155,7 +155,8 @@ def is_bad_response(text: str) -> bool:
         return any(phrase in lower for phrase in REFUSAL_PHRASES)
     return False
 
-async def try_model(model: str, messages: list) -> str | None:
+async def call_model(model: str, messages: list) -> tuple[str | None, bool]:
+    """Возвращает (ответ, is_rate_limited)"""
     try:
         body = {
             "model": model,
@@ -172,50 +173,44 @@ async def try_model(model: str, messages: list) -> str | None:
                 json=body,
                 timeout=40,
             )
+        if response.status_code == 429:
+            logging.warning(f"Модель {model}: rate limit 429")
+            return None, True
         if response.status_code != 200:
-            logging.warning(f"Модель {model}: HTTP {response.status_code} — {response.text[:300]}")
-            return None
+            logging.warning(f"Модель {model}: HTTP {response.status_code} — {response.text[:200]}")
+            return None, False
         data = response.json()
         if "choices" in data and data["choices"]:
             content = remove_think_tags(data["choices"][0]["message"]["content"] or "")
             if content and not is_bad_response(content):
                 logging.info(f"✅ Модель ответила: {model}")
-                return content
+                return content, False
         else:
             logging.warning(f"Модель {model}: нет choices — {str(data)[:200]}")
     except asyncio.CancelledError:
         pass
     except Exception as e:
         logging.warning(f"Модель {model}: {e}")
-    return None
+    return None, False
 
 async def ask_ai(messages: list) -> str:
     if not OPENROUTER_KEY:
         logging.error("OPENROUTER_KEY не задан!")
         return "⚠️ Ключ API не задан. Обратись к администратору."
 
-    # Отправляем батчами по 2 модели — чтобы не словить 429 от rate limit
-    BATCH_SIZE = 2
-    for i in range(0, len(MODELS), BATCH_SIZE):
-        batch = MODELS[i:i + BATCH_SIZE]
-        tasks = [asyncio.create_task(try_model(model, messages)) for model in batch]
-        try:
-            done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED, timeout=35)
-            # Отменяем незавершённые в батче
-            for t in pending:
-                t.cancel()
-            for task in done:
-                try:
-                    result = task.result()
-                    if result:
-                        return result
-                except Exception:
-                    pass
-        except Exception as e:
-            logging.error(f"ask_ai batch error: {e}")
-        # Небольшая пауза между батчами чтобы не долбить API
-        if i + BATCH_SIZE < len(MODELS):
-            await asyncio.sleep(1)
+    # Пробуем каждую модель. При 429 — ждём 3 сек и делаем ещё попытку.
+    # При другой ошибке — сразу переходим к следующей модели.
+    for model in MODELS:
+        result, rate_limited = await call_model(model, messages)
+        if result:
+            return result
+        if rate_limited:
+            # Ждём и пробуем ту же модель ещё раз
+            await asyncio.sleep(3)
+            result, _ = await call_model(model, messages)
+            if result:
+                return result
+            # Если снова 429 — следующая модель без лишних пауз
 
     logging.error("Все модели недоступны")
     return "Серверы перегружены, попробуй через минуту."
