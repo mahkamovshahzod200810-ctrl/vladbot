@@ -127,12 +127,18 @@ async def track_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 MODELS = [
     "meta-llama/llama-3.3-70b-instruct:free",
+    "mistralai/mistral-7b-instruct:free",
     "google/gemma-3-27b-it:free",
+    "google/gemma-3-12b-it:free",
+    "qwen/qwen3-8b:free",
+    "qwen/qwen2.5-72b-instruct:free",
     "deepseek/deepseek-chat-v3-0324:free",
+    "mistralai/mistral-small-3.1-24b-instruct:free",
     "microsoft/phi-4-reasoning-plus:free",
     "tngtech/deepseek-r1t-chimera:free",
-    "qwen/qwen3-8b:free",
-    "qwen/qwen3-14b:free",
+    "google/gemma-3-4b-it:free",
+    "microsoft/phi-3-mini-128k-instruct:free",
+    "huggingfaceh4/zephyr-7b-beta:free",
 ]
 
 REFUSAL_PHRASES = [
@@ -188,31 +194,28 @@ async def ask_ai(messages: list) -> str:
         logging.error("OPENROUTER_KEY не задан!")
         return "⚠️ Ключ API не задан. Обратись к администратору."
 
-    # Каждая модель в своём клиенте — параллельно
-    tasks = [asyncio.create_task(try_model(model, messages)) for model in MODELS]
-
-    try:
-        while tasks:
-            done, tasks_set = await asyncio.wait(
-                tasks, return_when=asyncio.FIRST_COMPLETED, timeout=45
-            )
-            tasks = list(tasks_set)
-
+    # Отправляем батчами по 2 модели — чтобы не словить 429 от rate limit
+    BATCH_SIZE = 2
+    for i in range(0, len(MODELS), BATCH_SIZE):
+        batch = MODELS[i:i + BATCH_SIZE]
+        tasks = [asyncio.create_task(try_model(model, messages)) for model in batch]
+        try:
+            done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED, timeout=35)
+            # Отменяем незавершённые в батче
+            for t in pending:
+                t.cancel()
             for task in done:
                 try:
                     result = task.result()
                     if result:
-                        # Отменяем остальные
-                        for t in tasks:
-                            t.cancel()
                         return result
                 except Exception:
                     pass
-
-            if not tasks:
-                break
-    except Exception as e:
-        logging.error(f"ask_ai error: {e}")
+        except Exception as e:
+            logging.error(f"ask_ai batch error: {e}")
+        # Небольшая пауза между батчами чтобы не долбить API
+        if i + BATCH_SIZE < len(MODELS):
+            await asyncio.sleep(1)
 
     logging.error("Все модели недоступны")
     return "Серверы перегружены, попробуй через минуту."
